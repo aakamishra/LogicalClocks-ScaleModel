@@ -7,6 +7,7 @@ import time
 from threading import Thread
 import random
 import logging
+import numpy as np
 
 TOTAL_TIME = 60
 
@@ -64,7 +65,7 @@ class VirtualMachine:
         
         # process value 
         self.p_val = config[2]
-        self.speed = random.randint(1, 6)
+        self.speed = np.random.choice(np.arange(1,7), 1, p=[0.35, 0.35, 0.3, 0.0, 0.0, 0.0])[0]
         self.ports_list = config[1]
         
         # create logical clock for this machine
