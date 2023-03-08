@@ -81,5 +81,40 @@ We then tested the scenario where the speeds that each machine was initialized w
 
 ![example-7](similiar-logs/logs_2239/jumps.png)
 
-
 In this figure we see many jumps happening at 3 which is the speed ratio between process 1 and process 3, likewise we also see differences on the mulitples of 2 which is the ratio between process 1 and process 2. Unlike **Fig 2.** we do not see an extremely large jump.
+
+### Less Internal Events Test Case 
+
+We reduce the probability of an internal event in each process to be 25% (instead of the default 70%) to test how the drift and jumps would change in this case. Each of sending to process A, process B, and both process A and B had a .25 probability of happening.
+
+### Takeaways
+
+![example-8](low-internal-logs/logs_9376/full_vis.png)
+
+**Slower machines drift even faster and harder.** Note that the frequency of sends (and receives) as a result went significantly up, and we can see this in the visualization above, as the large majority of events were send events. This causes slower processes to drift faster and harder than they otherwise would have.
+
+![example-9](low-internal-logs/logs_9376/simple.png)
+
+**Small logical clock jumps.** When the speeds of the different processes are similar, however, drift still doesn't occur even with the much larger frequency of sends. Moreover, the size of logical jumps remains small since the processes are in constant communication:
+
+![example-10](low-internal-logs/logs_3364/jumps.png)
+
+### More Internal Events Test Case 
+
+We increase the probability of an internal event in each process to be 95% (instead of the default 70%) to test how the drift and jumps would change in this case. Each of sending to process A, process B, and both process A and B had a 1/60 probability of happening.
+
+### Takeaways
+
+**Large logical clock jumps.** In the graphs below, we can see that there are large jumps for slow processes, while the fastest machine still maintains a consistent linear relationship between system time and logical time. 
+
+![example-11](low-internal-logs/logs_9983/simple.png)
+
+These larger jump values (of up to more than 60) actually make a lot of sense, due to the higher frequency of internal events, we have reduced the frequency of communication between the machines, so they are more likely to have clock values that drift further apart in between subsequent communications. 
+
+![example-12](low-internal-logs/logs_9983/jumps.png)
+
+In fact, we can see from this send-receive visualization, that compared to all the send-receive plots from the other experiments, these processes are checking in with each other quite infrequently.
+
+![example-13](low-internal-logs/logs_9983/full_vis.png)
+
+**Still, the queue size remains small.** Despite the jump size being large, the queue size itself remains small (note the dots stay light red in the above visualization, they would turn dark if the queue size is large). This makes sense since fast processes are not sending enough messages to create a large queue for the slower processes. This speaks to an interesting phenomena, the inverse relationship between queue length and logical clock jump size. Larger queue lengths are likely indicative that the current process is lagging but its logical clock will experience small jumps since the sending processes have sent lots of messages at close intervals. On the other hand, large jumps on slower processes imply that messages are being sent infrequently from faster processes, so we expect the queue size to be smaller due to the smaller amounts of communication.
