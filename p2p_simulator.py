@@ -50,7 +50,7 @@ class LogicalClock:
 class VirtualMachine:
     def __init__(self, config):
         # set initial op-code
-        self.op_code = 0
+        self.op_code = (0, 0)
         
         # queue and the lock to protect it
         self.queue_lock = Lock()
@@ -70,14 +70,14 @@ class VirtualMachine:
         
         
         
-    def run(self):
+    def run(self, folder_id):
         self.pid = os.getpid()
         
         # create logger
         self.lgr = logging.getLogger(f"{self.p_val}")
         self.lgr.setLevel(logging.DEBUG) # log all escalated at and above DEBUG
         # add a file handler
-        fh = logging.FileHandler(f"logs/{self.p_val}.csv")
+        fh = logging.FileHandler(f"logs/logs_{folder_id}/{self.p_val}.csv", mode='w')
         fh.setLevel(logging.DEBUG) # ensure all messages are logged to file
 
         # create a formatter and set the formatter for the handler.
@@ -119,7 +119,7 @@ class VirtualMachine:
             if elapsed_time >= 1/self.speed:
                 last_time = new_time
                 
-                self.op_code = random.randint(1,10)
+                self.op_code = (random.randint(1,10), self.clock.counter)
                 val = -1
                 n = -1
                 
@@ -136,7 +136,7 @@ class VirtualMachine:
                             sender=id,
                             reciever=self.p_val
                         ).update(self.lgr)
-                    else:
+                    elif self.op_code[0] >= 4:
                         internal = f"{self.p_val},{self.op_code}"
                         #print(f"I " + internal)
                         LogData(
@@ -144,7 +144,7 @@ class VirtualMachine:
                             clock_counter=self.clock.counter,
                             event_type="INTERNAL",
                             post_queue_length=n,
-                            description=self.op_code
+                            description=self.op_code[0]
                         ).update(self.lgr)
                 self.clock.update(int(val))
             
@@ -214,33 +214,32 @@ class VirtualMachine:
                 if time.time() - start_time > 65:
                     return 
                 
-                if elapsed_time < 1/self.speed:
-                    continue
+                # if elapsed_time < 1/self.speed:
+                #     continue
 
-                last_time = new_time
+                # last_time = new_time
                 n = 0
                 with self.queue_lock:
                     n = len(self.queue)
                 
-                if n == 0:
-                    code_value = self.op_code
+                    if n == 0:
+                        code_value, clock_time = self.op_code
 
-                    if agent == code_value or code_value == 3 and code_value != 0:
-                        msg = f"{self.p_val},{self.clock.counter}"
-                        # sent = f"{self.p_val}->{recv_p_val}"
-                        # self.update(self.p_val, "SEND", sent)
-                        queue_length = None
-                        with self.queue_lock:
-                            queue_length = len(self.queue)
-                        LogData(
-                            id=self.p_val,
-                            clock_counter=self.clock.counter,
-                            event_type="SEND",
-                            post_queue_length=queue_length,
-                            sender=self.p_val,
-                            reciever=recv_p_val,
-                        ).update(self.lgr)
-                        s.send(msg.encode('ascii'))
+                        if agent == code_value or code_value == 3 and code_value != 0:
+                            msg = f"{self.p_val},{self.clock.counter}"
+                            # sent = f"{self.p_val}->{recv_p_val}"
+                            # self.update(self.p_val, "SEND", sent)
+                            queue_length = None
+                            s.send(msg.encode('ascii'))
+                            LogData(
+                                id=self.p_val,
+                                clock_counter=clock_time,
+                                event_type="SEND",
+                                post_queue_length=n,
+                                sender=self.p_val,
+                                reciever=recv_p_val,
+                            ).update(self.lgr)
+                time.sleep(1/self.speed)
 
 
         except socket.error as e:
@@ -260,15 +259,19 @@ if __name__ == '__main__':
 
     config1=[localHost, ports_list, 1,]
     machine1 = VirtualMachine(config1)
-    p1 = Process(target=machine1.run)
+
+    folder_id = random.randint(1, 10000)
+    os.mkdir(f"logs/logs_{folder_id}")
+
+    p1 = Process(target=machine1.run, args=(folder_id,))
     
     config2=[localHost, ports_list, 2,]
     machine2 = VirtualMachine(config2)
-    p2 = Process(target=machine2.run)
+    p2 = Process(target=machine2.run, args=(folder_id,))
     
     config3=[localHost, ports_list, 3,]
     machine3 = VirtualMachine(config3)
-    p3 = Process(target=machine3.run)
+    p3 = Process(target=machine3.run, args=(folder_id,))
     
     p1.start()
     p2.start()
