@@ -8,6 +8,34 @@ from threading import Thread
 import random
 import logging
 
+class LogData:
+    def __init__(
+            self,
+            id,
+            clock_counter,
+            event_type,
+            post_queue_length,
+            sender=None,
+            reciever=None,
+            description=None,
+    ):
+        self.id = id
+        self.clock_counter = clock_counter
+        self.event_type = event_type
+        self.post_queue_length = post_queue_length
+        self.sender = sender
+        self.reciever = reciever
+        self.description = description
+    
+    def get_log_string(self):
+        return f"{self.id},{time.time_ns()},{self.clock_counter},{self.event_type}," + \
+        f"{self.sender},{self.reciever},{self.description},{self.post_queue_length}"
+        
+    def update(self, logger):    
+        info_str = self.get_log_string() 
+        print(info_str)      
+        logger.info(info_str)
+
 class LogicalClock:
     def __init__(self):
         self.counter = 0
@@ -99,12 +127,25 @@ class VirtualMachine:
                     n = len(self.queue)
                     if n > 0:
                         id, val = self.queue.pop(0)
-                        received = f"{id}->{self.p_val}"
-                        self.update(self.p_val, "RECEIVED", received, queue_length=n)
+                        # received = f"{id}->{self.p_val}"
+                        LogData(
+                            id=self.p_val,
+                            clock_counter=self.clock.counter,
+                            event_type="RECEIVED",
+                            post_queue_length=n,
+                            sender=id,
+                            reciever=self.p_val
+                        ).update(self.lgr)
                     else:
                         internal = f"{self.p_val},{self.op_code}"
                         #print(f"I " + internal)
-                        self.update(self.p_val, "INTERNAL", internal)
+                        LogData(
+                            id=self.p_val,
+                            clock_counter=self.clock.counter,
+                            event_type="INTERNAL",
+                            post_queue_length=n,
+                            description=self.op_code
+                        ).update(self.lgr)
                 self.clock.update(int(val))
             
     
@@ -120,9 +161,26 @@ class VirtualMachine:
         
         # start listening on port
         s.listen()
+
+        LogData(
+            id="Process Id",
+            clock_counter="Clock Counter",
+            event_type="Event Type",
+            post_queue_length="Queue Length",
+            sender="Sender",
+            reciever="Reciever",
+            description="Description"
+        ).update(self.lgr)
         
-        initalized = f"(pid: {self.pid}), (speed: {self.speed}), (recp: {HOST,PORT}), (id: {self.p_val})"
-        self.update(self.p_val, "CREATE", initalized)
+        initalized = f"(pid: {self.pid}) - (speed: {self.speed}) - (recp: {HOST};{PORT}) - (id: {self.p_val})"
+
+        LogData(
+            id=id,
+            clock_counter=self.clock.counter,
+            event_type="CREATE",
+            post_queue_length=None,
+            description=initalized
+        ).update(self.lgr)
         
         while True:
             conn, addr = s.accept()
@@ -144,32 +202,54 @@ class VirtualMachine:
         host= "127.0.0.1"
         port = int(port)
         s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        sleep_value = 1/self.speed
         
         try:
             s.connect((host,port))
             
-            start_time = time.time()
+            start_time = last_time = time.time()
             while True:
+                new_time = time.time()
+                elapsed_time = new_time - last_time
+
                 if time.time() - start_time > 65:
                     return 
-                code_value = self.op_code
-                if agent == code_value or code_value == 3 and code_value != 0:
-                    msg = f"{self.p_val},{self.clock.counter}"
-                    sent = f"{self.p_val}->{recv_p_val}"
-                    self.update(self.p_val, "SEND", sent)
-                    s.send(msg.encode('ascii'))
-                    
-                    
-                time.sleep(sleep_value)
+                
+                if elapsed_time < 1/self.speed:
+                    continue
+
+                last_time = new_time
+                n = 0
+                with self.queue_lock:
+                    n = len(self.queue)
+                
+                if n == 0:
+                    code_value = self.op_code
+
+                    if agent == code_value or code_value == 3 and code_value != 0:
+                        msg = f"{self.p_val},{self.clock.counter}"
+                        # sent = f"{self.p_val}->{recv_p_val}"
+                        # self.update(self.p_val, "SEND", sent)
+                        queue_length = None
+                        with self.queue_lock:
+                            queue_length = len(self.queue)
+                        LogData(
+                            id=self.p_val,
+                            clock_counter=self.clock.counter,
+                            event_type="SEND",
+                            post_queue_length=queue_length,
+                            sender=self.p_val,
+                            reciever=recv_p_val,
+                        ).update(self.lgr)
+                        s.send(msg.encode('ascii'))
+
 
         except socket.error as e:
             print ("Error connecting producer: %s" % e)
         
-    def update(self, id, event_type, desc, queue_length=None):    
-        info_str = str(id) + "," + str(time.time_ns()) + "," + str(self.clock.counter) + "," + str(event_type) + "," + str(desc) + "," + str(queue_length)  
-        print(info_str)      
-        self.lgr.info(info_str)
+    # def update(self, id, event_type, desc, queue_length=None):    
+    #     info_str = str(id) + "," + str(time.time_ns()) + "," + str(self.clock.counter) + "," + str(event_type) + "," + str(desc) + "," + str(queue_length)  
+    #     print(info_str)      
+    #     self.lgr.info(info_str)
 
 localHost= "127.0.0.1"
  
