@@ -52,7 +52,7 @@ def logical_clock_jumps_plot(base_dir):
         3: 'g'
     }
     markers = ['o', '^', 's']
-    
+
     for i in range(1, 4, 1):
         # colors = [colormap[x] for x in (dfs[i]["Event Type"].tolist())]
         plt.scatter(dfs[i]["System Time"][:-1], np.diff(dfs[i]["Clock Counter"]), label=f"Process {i}, Speed {speeds[i]}", alpha=0.5, c=colormap[i])
@@ -96,7 +96,8 @@ def send_receive_plot(base_dir):
     plt.close()
 
 if __name__ == "__main__":
-    dirs = [os.path.join("logs", d) for d in os.listdir('logs')]
+    base_folder = "logs"
+    dirs = [os.path.join(base_folder, d) for d in os.listdir(base_folder)]
     for dr in dirs:
         simple_system_vs_logical_plot(dr)
         logical_clock_jumps_plot(dr)
