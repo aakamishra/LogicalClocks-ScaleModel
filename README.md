@@ -11,7 +11,7 @@ Our [engineering notebook is here.](notebook.md)
 
 ## Model Design Document
 
-Our [design document is here.](notebook.md)
+Our [design document is here.](design.md)
 
 ## Usage
 
