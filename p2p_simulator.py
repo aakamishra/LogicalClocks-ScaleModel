@@ -8,6 +8,8 @@ from threading import Thread
 import random
 import logging
 
+TOTAL_TIME = 60
+
 class LogData:
     def __init__(
             self,
@@ -107,7 +109,7 @@ class VirtualMachine:
                 agent += 1
                 port = int(port)
                 s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                sockets_dict[agent] = (s, i)
+                sockets_dict[agent] = (s, i + 1)
                 try:
                     s.connect((host, port))
                 except Exception as e:
@@ -120,7 +122,9 @@ class VirtualMachine:
             new_time = time.time()
             elapsed_time = new_time - self.last_time
             
-            if new_time - start_time > 65:
+            if new_time - start_time > TOTAL_TIME + 5:
+                for (conn, _) in sockets_dict.values():
+                    conn.close()
                 return 
             
             if elapsed_time >= 1/self.speed:
@@ -157,7 +161,10 @@ class VirtualMachine:
                     elif self.op_code[0] in sockets_dict.keys():
                         s, id = sockets_dict[self.op_code[0]]
                         msg = f"{self.p_val},{self.clock.counter}"
-                        s.send(msg.encode('ascii'))
+                        try:
+                            s.send(msg.encode('ascii'))
+                        except BrokenPipeError:
+                            pass
                         LogData(
                             id=self.p_val,
                             clock_counter=self.clock.counter,
@@ -171,7 +178,10 @@ class VirtualMachine:
                         for agent in sockets_dict.keys():
                             s, id = sockets_dict[agent]
                             msg = f"{self.p_val},{self.clock.counter}"
-                            s.send(msg.encode('ascii'))
+                            try:
+                                s.send(msg.encode('ascii'))
+                            except BrokenPipeError:
+                                pass
                             LogData(
                                 id=self.p_val,
                                 clock_counter=self.clock.counter,
@@ -211,21 +221,22 @@ class VirtualMachine:
         initalized = f"(pid: {self.pid}) - (speed: {self.speed}) - (recp: {HOST};{PORT}) - (id: {self.p_val})"
 
         LogData(
-            id=id,
+            id=self.p_val,
             clock_counter=self.clock.counter,
             event_type="CREATE",
             post_queue_length=None,
             description=initalized
         ).update(self.lgr)
         
-        while True:
+        for _ in range(2):
             conn, addr = s.accept()
             start_new_thread(self.consumer, (conn,))
     
     def consumer(self, conn):
         start_time = time.time()
         while True:
-            if time.time() - start_time > 60:
+            if time.time() - start_time > TOTAL_TIME:
+                conn.close()
                 return
             data = conn.recv(1024)
             data_value = data.decode('ascii').split(",")
@@ -240,7 +251,9 @@ localHost= "127.0.0.1"
 
 if __name__ == '__main__':   
     
-    ports_list = [2056, 3056, 4056]
+    jitter = random.randint(0, 500)
+
+    ports_list = [2056 + jitter, 3056 + jitter, 4056 + jitter]
 
     config1=[localHost, ports_list, 1,]
     machine1 = VirtualMachine(config1)
