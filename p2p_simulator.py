@@ -40,6 +40,9 @@ class LogData:
         logger.info(info_str)
 
 class LogicalClock:
+    """
+    Implementation of Lamport's Logicial Clock
+    """
     def __init__(self):
         self.counter = 0
     
@@ -74,7 +77,18 @@ class VirtualMachine:
         
         
         
-    def run(self, folder_id):
+    def run(self, folder_id: int) -> None:
+        """
+        Run the main machine level thread and random simulation metrics.
+        
+        Args:
+            folder_id (int): Folder id to put log files in
+            
+        Returns:
+            None
+        """
+        
+        # get pid of process for documenting reasons
         self.pid = os.getpid()
         
         # create logger
@@ -120,14 +134,17 @@ class VirtualMachine:
         start_time = self.last_time = time.time()
         
         while True:
+            # update timing mechanism
             new_time = time.time()
             elapsed_time = new_time - self.last_time
             
+            # if the experiment time is up close the connection
             if new_time - start_time > TOTAL_TIME + 5:
                 for (conn, _) in sockets_dict.values():
                     conn.close()
                 return 
             
+            # do not do anything if the ticks per second have been exhausted
             if elapsed_time >= 1/self.speed:
                 self.last_time = new_time
                 
@@ -135,11 +152,12 @@ class VirtualMachine:
                 val = -1
                 n = -1
                 
+                # ensure thread saftey
                 with self.queue_lock:
                     n = len(self.queue)
                     if n > 0:
+                        # added log data, case for when queue is not empty
                         id, val = self.queue.pop(0)
-                        # received = f"{id}->{self.p_val}"
                         LogData(
                             id=self.p_val,
                             clock_counter=self.clock.counter,
@@ -150,8 +168,8 @@ class VirtualMachine:
                             description=self.op_code[0]
                         ).update(self.lgr)
                     elif self.op_code[0] >= 4:
-                        internal = f"{self.p_val},{self.op_code}"
-                        #print(f"I " + internal)
+                        # case for an internal event
+                        
                         LogData(
                             id=self.p_val,
                             clock_counter=self.clock.counter,
@@ -160,6 +178,8 @@ class VirtualMachine:
                             description=self.op_code[0]
                         ).update(self.lgr)
                     elif self.op_code[0] in sockets_dict.keys():
+                        # case for when we send a one off message
+                        
                         s, id = sockets_dict[self.op_code[0]]
                         msg = f"{self.p_val},{self.clock.counter}"
                         try:
@@ -176,6 +196,7 @@ class VirtualMachine:
                             description=self.op_code[0]
                         ).update(self.lgr)
                     else:
+                        # case for when we message both of the other processes
                         for agent in sockets_dict.keys():
                             s, id = sockets_dict[agent]
                             msg = f"{self.p_val},{self.clock.counter}"
@@ -196,7 +217,18 @@ class VirtualMachine:
                 self.clock.update(int(val))
             
     
-    def init_machine(self):
+    def init_machine(self) -> None:
+        """
+        Creates a new machine thread that monitors 
+        and accepts new client connections and hands
+        them off to a newly created consumer thread.
+        
+        Args:
+            None
+        
+        Returns:
+            None
+        """
         HOST = str(self.config[0])
         PORT = int(self.ports_list[self.p_val - 1])
         print(HOST, PORT, self.p_val)
@@ -233,36 +265,57 @@ class VirtualMachine:
             conn, addr = s.accept()
             start_new_thread(self.consumer, (conn,))
     
-    def consumer(self, conn):
+    def consumer(self, conn) -> None:
+        """
+        Consumes data from a network connection and adds it to a queue.
+
+        Args:
+            conn (socket.socket): The network connection to consume data from.
+
+        Returns:
+            None
+
+        """
+        # Record the start time so we know when to stop consuming.
         start_time = time.time()
         while True:
+            # Check if we've been consuming for longer than the allowed time.
             if time.time() - start_time > TOTAL_TIME:
+                # Close the connection and return to stop consuming.
                 conn.close()
                 return
+            
+            # Receive data from the connection.
             data = conn.recv(1024)
+
+            # Split the received data into ID and value.
             data_value = data.decode('ascii').split(",")
             if len(data_value) > 1:
                 id, val = data_value[0], data_value[1]
+                
+                # Add the ID and value to the shared queue, ensuring thread safety.
                 with self.queue_lock:
                     self.queue.append((id, val))
-        
 
+        
+# define localhost global address
 localHost= "127.0.0.1"
  
-
 if __name__ == '__main__':   
     
     jitter = random.randint(0, 500)
 
+    # define ports for socket connections
     ports_list = [2056 + jitter, 3056 + jitter, 4056 + jitter]
 
-    config1=[localHost, ports_list, 1,]
-    machine1 = VirtualMachine(config1)
-
+    # create logging folder
     folder_id = random.randint(1, 10000)
     print(f"Folder ID: {folder_id}")
     os.mkdir(f"logs/logs_{folder_id}")
-
+    
+    # setup virtual machine 1, 2 and 3
+    config1=[localHost, ports_list, 1,]
+    machine1 = VirtualMachine(config1)
     p1 = Process(target=machine1.run, args=(folder_id,))
     
     config2=[localHost, ports_list, 2,]
@@ -273,6 +326,7 @@ if __name__ == '__main__':
     machine3 = VirtualMachine(config3)
     p3 = Process(target=machine3.run, args=(folder_id,))
     
+    # start all respective threads
     p1.start()
     p2.start()
     p3.start()
