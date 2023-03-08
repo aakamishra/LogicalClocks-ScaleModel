@@ -33,7 +33,8 @@ def simple_system_vs_logical_plot(base_dir):
 
     for i in range(3, 0, -1):
         colors = [colormap[x] for x in (dfs[i]["Event Type"].tolist())]
-        plt.scatter(dfs[i]["System Time"], dfs[i]["Clock Counter"], label=f"Process {i}, Speed {speeds[i]}", alpha=0.5, c=colors, marker=markers[i - 1])
+        # plt.scatter(dfs[i]["System Time"], dfs[i]["Clock Counter"], label=f"Process {i}, Speed {speeds[i]}", alpha=0.3, c=colors, marker=markers[i - 1])
+        plt.plot(dfs[i]["System Time"], dfs[i]["Clock Counter"], label=f"Process {i}, Speed {speeds[i]}")
 
     plt.xlabel("System Time")
     plt.ylabel("Logical Clock Time")
@@ -46,18 +47,18 @@ plt.figure(figsize=(12, 5))
 def logical_clock_jumps_plot(base_dir):
     dfs, speeds = read_csvs(base_dir)
     colormap = {
-        "SEND": 'r',
-        "RECEIVED": 'b',
-        "INTERNAL": 'g'
+        1: 'r',
+        2: 'b',
+        3: 'g'
     }
     markers = ['o', '^', 's']
 
-    for i in range(3, 0, -1):
-        colors = [colormap[x] for x in (dfs[i]["Event Type"].tolist())]
-        plt.scatter(dfs[i]["System Time"][:-1], np.diff(dfs[i]["Clock Counter"]), label=f"Process {i}, Speed {speeds[i]}", alpha=0.5, c=colors[:-1], marker=markers[i - 1])
+    for i in range(1, 4, 1):
+        # colors = [colormap[x] for x in (dfs[i]["Event Type"].tolist())]
+        plt.scatter(dfs[i]["System Time"][:-1], np.diff(dfs[i]["Clock Counter"]), label=f"Process {i}, Speed {speeds[i]}", alpha=0.5, c=colormap[i])
 
     plt.xlabel("System Time")
-    plt.ylabel("Logical Clock Time")
+    plt.ylabel("Logical Clock Time Jump")
     plt.legend()
     plt.savefig(os.path.join(base_dir, "jumps.png"))
     plt.close()
@@ -95,7 +96,8 @@ def send_receive_plot(base_dir):
     plt.close()
 
 if __name__ == "__main__":
-    dirs = [os.path.join("logs", d) for d in os.listdir('logs')]
+    base_folder = "logs"
+    dirs = [os.path.join(base_folder, d) for d in os.listdir(base_folder)]
     for dr in dirs:
         simple_system_vs_logical_plot(dr)
         logical_clock_jumps_plot(dr)
