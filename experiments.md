@@ -107,14 +107,14 @@ We increase the probability of an internal event in each process to be 95% (inst
 
 **Large logical clock jumps.** In the graphs below, we can see that there are large jumps for slow processes, while the fastest machine still maintains a consistent linear relationship between system time and logical time. 
 
-![example-11](low-internal-logs/logs_9983/simple.png)
+![example-11](high-internal-logs/logs_9983/simple.png)
 
 These larger jump values (of up to more than 60) actually make a lot of sense, due to the higher frequency of internal events, we have reduced the frequency of communication between the machines, so they are more likely to have clock values that drift further apart in between subsequent communications. 
 
-![example-12](low-internal-logs/logs_9983/jumps.png)
+![example-12](high-internal-logs/logs_9983/jumps.png)
 
 In fact, we can see from this send-receive visualization, that compared to all the send-receive plots from the other experiments, these processes are checking in with each other quite infrequently.
 
-![example-13](low-internal-logs/logs_9983/full_vis.png)
+![example-13](high-internal-logs/logs_9983/full_vis.png)
 
 **Still, the queue size remains small.** Despite the jump size being large, the queue size itself remains small (note the dots stay light red in the above visualization, they would turn dark if the queue size is large). This makes sense since fast processes are not sending enough messages to create a large queue for the slower processes. This speaks to an interesting phenomena, the inverse relationship between queue length and logical clock jump size. Larger queue lengths are likely indicative that the current process is lagging but its logical clock will experience small jumps since the sending processes have sent lots of messages at close intervals. On the other hand, large jumps on slower processes imply that messages are being sent infrequently from faster processes, so we expect the queue size to be smaller due to the smaller amounts of communication.
