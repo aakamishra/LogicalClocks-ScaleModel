@@ -1,6 +1,12 @@
 # LogicalClocks-ScaleModel
 CS262 Demo Day 2 Assignment, Visualization / Scale Model of Logical Clocks Scaling
 
+## Getting Started
+
+```
+pip install -r requirements.txt
+```
+
 ## Experiment Descriptions and Results
 
 Our [experiment report is here.](experiments.md)
