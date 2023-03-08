@@ -9,12 +9,33 @@ import random
 import pandas as pd
 import logging
 
-
+class LogData:
+    def __init__(
+            self,
+            id,
+            clock_counter,
+            event_type,
+            post_queue_length,
+            sender=None,
+            reciever=None,
+            description=None,
+    ):
+        self.id = id
+        self.clock_counter = clock_counter
+        self.event_type = event_type
+        self.post_queue_length = post_queue_length
+        self.sender = sender
+        self.reciever = reciever
+        self.description = description
+    
+    def get_log_string(self):
+        return f"{self.id},{time.time_ns()},{self.clock_counter},{self.event_type}," + \
+        f"{self.sender},{self.reciever},{self.description},{self.post_queue_length}"
         
-def update(logger, id, event_type, clock, desc, queue_length=None):    
-    info_str = str(id) + "," + str(time.time_ns()) + "," + str(clock.counter) + "," + str(event_type) + "," + str(desc) + "," + str(queue_length)  
-    print(info_str)      
-    logger.info(info_str)
+    def update(self, logger):    
+        info_str = self.get_log_string() 
+        print(info_str)      
+        logger.info(info_str)
 
 class LogicalClock:
     def __init__(self):
@@ -28,7 +49,6 @@ class LogicalClock:
             self.counter = update_value + 1
                 
                 
-
 def run_server() -> None:
     server = Server()
 
@@ -85,7 +105,7 @@ def run_client_process(id):
     pid = os.getpid()
     speed = random.randint(1, 6)
     
-    initalized = f"(pid: {pid}), (speed: {speed}), (recp: {recp}), (id: {id})"
+    initalized = f"(pid: {pid}) - (speed: {speed}) - (recp: {recp[0]};{recp[1]}) - (id: {id})"
     #print(initalized)
     
     # create logger
@@ -101,11 +121,26 @@ def run_client_process(id):
 
     # add the Handler to the logger
     lgr.addHandler(fh)
+
+    LogData(
+        id="Process Id",
+        clock_counter="Clock Counter",
+        event_type="Event Type",
+        post_queue_length="Queue Length",
+        sender="Sender",
+        reciever="Reciever",
+        description="Description"
+    ).update(lgr)
     
     start_time = last_time = time.time()
     clock = LogicalClock()
-    update(lgr, id, "CREATE", clock, initalized)
-    
+    LogData(
+        id=id,
+        clock_counter=clock.counter,
+        event_type="CREATE",
+        post_queue_length=None,
+        description=initalized
+    ).update(lgr)
     
     while True:
         new_time = time.time()
@@ -129,15 +164,18 @@ def run_client_process(id):
                 print(f"[error] (pid: {pid}) {msg.error_code}")
             
             # store queue value
+            # TODO: Change queue_length to just be an int type in RefreshReply type
             queue_length = int(msg.queue_length)
             
             # update logical clock (time is negative if queue is empty = no update)
+            # TODO: Same change for logical time as for queue_length
             clock.update(int(msg.logical_time))
-            if queue_length < 0:
+            if queue_length < 0: # TODO: understand how can be queue_length be negative?
                 # random decision process
                 random_value = random.randint(1, 10)
                 
                 # check if we are to message a single process
+                # TODO: move each case into separate functions
                 if random_value in [1,2]:
                     msg = message_creator.MessageRequest(id=id, 
                                                         recipient=recp[random_value-1], 
@@ -147,8 +185,15 @@ def run_client_process(id):
                         print(f"[error] message not delivered {rsp.error_code}")
                     else:
                         sent = f"{id}->{recp[random_value-1]}"
-                        #print("S " + sent)
-                        update(lgr, id, "SEND", clock, sent)
+                        print(f"{id}: {queue_length}")
+                        LogData(
+                            id=id,
+                            clock_counter=clock.counter,
+                            event_type="SEND",
+                            post_queue_length=queue_length,
+                            sender=id,
+                            reciever=recp[random_value-1],
+                        ).update(lgr)
                 elif random_value == 3:
                     # case for messaging both processes
                     
@@ -161,17 +206,31 @@ def run_client_process(id):
                         if len(rsp.error_code) > 0:
                             print(f"[error] message not delivered {rsp.error_code}")
                         else:
-                            sent = f"{id}->{r}"
-                            #print("S "+sent)
-                            update(lgr, id, "SEND", clock, sent)
+                            LogData(
+                                id=id,
+                                clock_counter=clock.counter,
+                                event_type="SEND",
+                                post_queue_length=queue_length,
+                                sender=id,
+                                reciever=r,
+                            ).update(lgr)
                 else:
-                    internal = f"{id},{random_value}"
-                    #print(f"I " + internal)
-                    update(lgr, id, "INTERNAL", clock, internal)
+                    LogData(
+                        id=id,
+                        clock_counter=clock.counter,
+                        event_type="INTERNAL",
+                        post_queue_length=queue_length,
+                        description=random_value
+                    ).update(lgr)
             else:
-                received = f"{msg.id}->{id}"
-                #print("R " + received)
-                update(lgr, id, "RECEIVED", clock, received, queue_length=queue_length)
+                LogData(
+                    id=id,
+                    clock_counter=clock.counter,
+                    event_type="RECEIVED",
+                    post_queue_length=queue_length,
+                    sender=msg.id,
+                    reciever=id
+                ).update(lgr)
                     
         time.sleep(0.001)
     
