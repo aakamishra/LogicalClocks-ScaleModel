@@ -71,5 +71,15 @@ We then tested the scenario where the speeds that each machine was initialized w
 
 ### Takeaways
 
+**Less Drift.** We see a lot less drift when the speeds are similar. Most of the processes are able to keep up with the fastest ones and the queue lengths for the processes are relatively small. 
+
+![example-5](similiar-logs/logs_1127/simple.png)
+
+![example-6](similiar-logs/logs_2239/simple.png)
+
+**Size of Jumps is More Consistent.** The difference between the speeds of each of the processes is very small so the lag between them is naturally smaller too. We observe that many of the processes have more regular jumps and not as many outlier jumps as seen in previous experiments. Here is an example of this. 
+
+![example-7](similiar-logs/logs_2239/jumps.png)
 
 
+In this figure we see many jumps happening at 3 which is the speed ratio between process 1 and process 3, likewise we also see differences on the mulitples of 2 which is the ratio between process 1 and process 2. Unlike **Fig 2.** we do not see an extremely large jump.
